@@ -17,7 +17,9 @@ def _resolve_packages(client, keyword, name, wanted):
     accesso shards a product across package ids by date window, so the package
     must be resolved per date from the calendar.
     """
-    svc = client.keyword_calendar(keyword, min(wanted), max(wanted))
+    # end is padded +1 day: a zero-width range (e.g. a 1-date horizon) returns nothing.
+    end = (date.fromisoformat(max(wanted)) + timedelta(days=1)).isoformat()
+    svc = client.keyword_calendar(keyword, min(wanted), end)
     out = {}
     for day in svc.get("DATES", {}).get("D", []):
         iso = day.get("date")
@@ -66,7 +68,8 @@ def _slot_records(client, ticket_type, cfg, dates):
 
 def _single_records(client, ticket_type, cfg, dates):
     wanted = {d.isoformat() for d in dates}
-    start, end = min(wanted), max(wanted)
+    start = min(wanted)
+    end = (date.fromisoformat(max(wanted)) + timedelta(days=1)).isoformat()
     records = []
     try:
         svc = client.keyword_calendar(cfg["keyword"], start, end)

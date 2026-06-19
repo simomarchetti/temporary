@@ -7,11 +7,16 @@ Confirmed 2026-06-19 (see TRACE_FINDINGS.md). Flow per cart session:
 
 Displayed price = discounted_retail_price + discounted_tax_amount (VAT-inclusive).
 """
+import os
 import secrets
 import time
 
 import certifi
 import httpx
+
+# Default to certifi, but let a TLS-intercepting environment (e.g. a corporate or
+# cloud proxy) point at its own CA bundle via env var without code changes.
+_CA_BUNDLE = os.environ.get("EYE_CA_BUNDLE") or os.environ.get("SSL_CERT_FILE") or certifi.where()
 
 BASE = "https://ecomm.api.meg-eu.accessoticketing.com"
 
@@ -45,7 +50,7 @@ class AccessoClient:
     """One cart session against the accesso API."""
 
     def __init__(self, delay=0.12):
-        self._http = httpx.Client(headers=HEADERS, timeout=30, verify=certifi.where())
+        self._http = httpx.Client(headers=HEADERS, timeout=30, verify=_CA_BUNDLE)
         self.cart_id = self.cart_key = self.session_id = None
         self._delay = delay  # politeness pause between requests (anti rate-limit)
 

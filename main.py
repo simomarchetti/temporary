@@ -10,8 +10,6 @@ import traceback
 from datetime import date, timedelta
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright
-
 from eye_scraper import config
 from eye_scraper.api_scrape import scrape_api
 from eye_scraper.booking import scrape_ticket_type
@@ -66,6 +64,9 @@ def main():
         total = run_api(args.days, args.ticket_types, output)
         print(f"\nDone. {total} records written to {output}")
         return
+
+    # Browser engine only: import Playwright lazily so --engine api needs no browser.
+    from playwright.sync_api import sync_playwright
 
     total = 0
     with sync_playwright() as p:
