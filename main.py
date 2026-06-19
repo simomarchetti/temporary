@@ -70,9 +70,13 @@ def main():
 
     total = 0
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=not args.headed)
+        # --no-sandbox / dev-shm flags keep Chromium working in containers (cloud runners);
+        # ignore_https_errors survives a TLS-intercepting proxy.
+        browser = p.chromium.launch(headless=not args.headed,
+                                    args=["--no-sandbox", "--disable-dev-shm-usage"])
         ctx = browser.new_context(user_agent=UA, locale="en-GB",
-                                  viewport={"width": 1366, "height": 900})
+                                  viewport={"width": 1366, "height": 900},
+                                  ignore_https_errors=True)
         for d in horizon(args.days):
             for ticket_type in args.ticket_types:
                 label = f"{d.isoformat()} / {ticket_type}"
