@@ -73,15 +73,24 @@ class AccessoClient:
         return r.json()["SERVICE"]
 
     def _post(self, endpoint: str, body: dict) -> dict:
-        """POST with one re-bootstrap+backoff retry if Cloudflare throttles us."""
-        try:
-            return self._request(endpoint, body)
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code not in (400, 403, 429):
-                raise
-            time.sleep(3)
-            self._bootstrap()  # refresh __cf_bm cookie (cart stays valid)
-            return self._request(endpoint, body)
+        """POST with retries: re-bootstrap on Cloudflare throttle (400/403/429),
+        and back off on transient network/protocol errors (e.g. a dropped
+        connection when the machine dozes or Wi-Fi flaps overnight)."""
+        last = None
+        for attempt in range(4):  # up to 4 tries, backoff 2s/4s/6s
+            try:
+                return self._request(endpoint, body)
+            except httpx.HTTPStatusError as e:
+                last = e
+                if e.response.status_code not in (400, 403, 429):
+                    raise
+                time.sleep(3)
+                self._bootstrap()  # refresh __cf_bm cookie (cart stays valid)
+            except (httpx.TransportError, httpx.HTTPError) as e:
+                # RemoteProtocolError, ConnectError, ReadTimeout, etc. — transient.
+                last = e
+                time.sleep(2 * (attempt + 1))
+        raise last
 
     def _bootstrap(self):
         # Fetch bootstrap to obtain/refresh the Cloudflare __cf_bm cookie; without it

@@ -107,13 +107,21 @@ def _single_records(client, ticket_type, cfg, dates):
 
 
 def scrape_api(ticket_types, dates):
-    """Scrape the given ticket types over `dates` (list[date]) via the API."""
+    """Scrape the given ticket types over `dates` (list[date]) via the API.
+
+    Per-ticket failures are isolated: one ticket erroring (e.g. a network blip
+    that survives the client's retries) logs and continues, so the run still
+    writes whatever the other tickets collected instead of losing everything.
+    """
     records = []
     with AccessoClient() as client:
         for ticket_type in ticket_types:
             cfg = TICKETS[ticket_type]
-            if cfg.get("mode") == "single":
-                records += _single_records(client, ticket_type, cfg, dates)
-            else:
-                records += _slot_records(client, ticket_type, cfg, dates)
+            try:
+                if cfg.get("mode") == "single":
+                    records += _single_records(client, ticket_type, cfg, dates)
+                else:
+                    records += _slot_records(client, ticket_type, cfg, dates)
+            except Exception as e:
+                print(f"!! {ticket_type}: FAILED — {type(e).__name__}: {e}")
     return records
